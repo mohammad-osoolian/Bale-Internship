@@ -1,0 +1,3 @@
+- what is access_hash? a hash of what? 
+- : is not permitted in filing system
+- how is the server gonna be concurrent?
