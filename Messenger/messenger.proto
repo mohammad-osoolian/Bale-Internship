@@ -1,0 +1,71 @@
+syntax = "proto3";
+package messenger;
+option go_package = "./messenger";
+
+service Messenger {
+  rpc AddUser(AddUserRequest) returns (AddUserResponse);
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+  rpc FetchMessage(FetchMessageRequest) returns (FetchMessageResponse);
+  rpc GetUserMessages(GetUserMessagesRequest) returns (GetUserMessagesResponse);
+}
+
+message AddUserRequest {
+  string username = 1;
+  string file_id = 2;
+}
+
+message AddUserResponse {
+  int32 user_id = 1;
+  string error = 2;
+}
+
+message UserIdOrName{
+    oneof user{
+        string username = 1;
+        int32 user_id = 2;
+    }
+}
+
+message Content{
+    oneof content{
+        string text = 1;
+        string file_id = 2;
+    }
+}
+
+message SendMessageRequest {
+  UserIdOrName sender = 1;
+  UserIdOrName receiver = 2;
+  Content content = 3;
+}
+
+message SendMessageResponse {
+  string error = 1;
+  int32 message_id = 2;
+}
+
+message FetchMessageRequest {
+  int32 message_id = 1;
+}
+
+message FetchMessageResponse {
+  string content = 1;
+  string error = 2;
+}
+
+message GetUserMessagesRequest {
+  int32 user_id = 1;
+}
+
+message GetUserMessagesResponse {
+  repeated Message messages = 1;
+  string error = 2;
+}   
+
+message Message {
+  int32 id = 1;
+  string content = 2;
+  int32 sender = 3;
+  int32 receiver = 4;
+  int64 timestamp = 6;
+}
