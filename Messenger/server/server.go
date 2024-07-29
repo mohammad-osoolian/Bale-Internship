@@ -39,7 +39,7 @@ func NewServer() *Server {
 		messages:      make(map[int32]*Message),
 		userID:        1,
 		msgID:         1,
-		fileServerURL: "http://127.0.0.1:8000",
+		fileServerURL: "http://fileserver:8000",
 	}
 }
 

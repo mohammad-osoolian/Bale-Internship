@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: messenger-deployment
+  labels:
+    name: messenger-deployment
+    app: bale-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: messenger-pod
+      app: bale-app
+  template:
+    metadata:
+      name: messenger-pod
+      labels:
+        name: messenger-pod
+        app: bale-app
+    spec:
+      containers:
+      - name: messenger
+        image: mohammad2782/messenger:1
+        ports:
+          - containerPort: 50051

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fileserver-pod
+  labels:
+    name: fileserver-pod
+    app: bale-app
+spec:
+  containers:
+  - name: fileserver
+    image: mohammad2782/concurrent-fileserver:1
+    ports:
+      - containerPort: 8000

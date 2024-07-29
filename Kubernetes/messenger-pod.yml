@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: messenger-pod
+  labels:
+    name: messenger-pod
+    app: bale-app
+spec:
+  containers:
+  - name: messenger
+    image: mohammad2782/messenger:1
+    ports:
+      - containerPort: 50051

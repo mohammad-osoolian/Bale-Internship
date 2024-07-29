@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: messenger-service
+  labels:
+    name: messenger-service-nodeport
+    app: bale-app
+spec:
+  type: NodePort
+  selector:
+    name: messenger-pod
+    app: bale-app
+  ports:
+  - port: 50051
+    targetPort: 50051
+    nodePort: 30002

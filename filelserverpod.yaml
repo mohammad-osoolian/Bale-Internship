@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fileserver
+  labels:
+    app: fileserver
+    tier: backend
+spec:
+  containers:
+  - name: fileserver
+    image: mohammad2782/concurrent-fileserver:1
