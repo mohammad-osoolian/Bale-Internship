@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fileserver-deployment
+  labels:
+    name: fileserver-deployment
+    app: bale-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: fileserver-pod
+      app: bale-app
+  template:
+    metadata:
+      name: fileserver-pod
+      labels:
+        name: fileserver-pod
+        app: bale-app
+    spec:
+      containers:
+      - name: fileserver
+        image: mohammad2782/concurrent-fileserver:1
+        ports:
+          - containerPort: 8000
+
