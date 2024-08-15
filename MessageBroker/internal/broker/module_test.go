@@ -2,12 +2,15 @@ package broker
 
 import (
 	"context"
+	"log"
 	"math/rand"
 	"sync"
 	"testing"
+	datacontrol "therealbroker/internal/data_control"
 	"therealbroker/pkg/broker"
 	"time"
 
+	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,16 +18,32 @@ var (
 	service broker.Broker
 	mainCtx = context.Background()
 	letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	data    datacontrol.DataControl
 )
 
 func TestMain(m *testing.M) {
+	postgres := datacontrol.NewDataPostgres("localhost", "5432", "postgres", "8764", "TestDB", context.Background())
+	err := postgres.Connect()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	err = postgres.ClearData()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer postgres.Close()
+	data = postgres
+
+	// data = NewDataMemory()
+
+	service = NewModule(data)
 	rand.Seed(time.Now().Unix())
-	service = NewModule()
 	m.Run()
 }
 
 func TestPublishShouldFailOnClosed(t *testing.T) {
-	service = NewModule()
 	msg := createMessage()
 
 	err := service.Close()
@@ -35,7 +54,6 @@ func TestPublishShouldFailOnClosed(t *testing.T) {
 }
 
 func TestSubscribeShouldFailOnClosed(t *testing.T) {
-	service = NewModule()
 	err := service.Close()
 	assert.Nil(t, err)
 
@@ -44,7 +62,6 @@ func TestSubscribeShouldFailOnClosed(t *testing.T) {
 }
 
 func TestFetchShouldFailOnClosed(t *testing.T) {
-	service = NewModule()
 	err := service.Close()
 	assert.Nil(t, err)
 
@@ -53,7 +70,6 @@ func TestFetchShouldFailOnClosed(t *testing.T) {
 }
 
 func TestPublishShouldNotFail(t *testing.T) {
-	service = NewModule()
 	msg := createMessage()
 
 	_, err := service.Publish(mainCtx, "ali", msg)
@@ -62,7 +78,6 @@ func TestPublishShouldNotFail(t *testing.T) {
 }
 
 func TestSubscribeShouldNotFail(t *testing.T) {
-	service = NewModule()
 	sub, err := service.Subscribe(mainCtx, "ali")
 
 	assert.Equal(t, nil, err)
@@ -70,7 +85,6 @@ func TestSubscribeShouldNotFail(t *testing.T) {
 }
 
 func TestPublishShouldSendMessageToSubscribedChan(t *testing.T) {
-	service = NewModule()
 	msg := createMessage()
 
 	sub, _ := service.Subscribe(mainCtx, "ali")
@@ -81,7 +95,6 @@ func TestPublishShouldSendMessageToSubscribedChan(t *testing.T) {
 }
 
 func TestPublishShouldSendMessageToSubscribedChans(t *testing.T) {
-	service = NewModule()
 	msg := createMessage()
 
 	sub1, _ := service.Subscribe(mainCtx, "ali")
@@ -98,7 +111,6 @@ func TestPublishShouldSendMessageToSubscribedChans(t *testing.T) {
 }
 
 func TestPublishShouldPreserveOrder(t *testing.T) {
-	service = NewModule()
 	n := 50
 	messages := make([]broker.Message, n)
 	sub, _ := service.Subscribe(mainCtx, "ali")
@@ -114,7 +126,6 @@ func TestPublishShouldPreserveOrder(t *testing.T) {
 }
 
 func TestPublishShouldNotSendToOtherSubscriptions(t *testing.T) {
-	service = NewModule()
 	msg := createMessage()
 	ali, _ := service.Subscribe(mainCtx, "ali")
 	maryam, _ := service.Subscribe(mainCtx, "maryam")
@@ -129,16 +140,15 @@ func TestPublishShouldNotSendToOtherSubscriptions(t *testing.T) {
 }
 
 func TestNonExpiredMessageShouldBeFetchable(t *testing.T) {
-	service = NewModule()
 	msg := createMessageWithExpire(time.Second * 10)
 	id, _ := service.Publish(mainCtx, "ali", msg)
+	log.Println(id)
 	fMsg, _ := service.Fetch(mainCtx, "ali", id)
 
-	assert.Equal(t, msg, fMsg)
+	assert.Equal(t, msg.Body, fMsg.Body)
 }
 
 func TestExpiredMessageShouldNotBeFetchable(t *testing.T) {
-	service = NewModule()
 	msg := createMessageWithExpire(time.Millisecond * 500)
 	id, _ := service.Publish(mainCtx, "ali", msg)
 	ticker := time.NewTicker(time.Second)
@@ -151,7 +161,6 @@ func TestExpiredMessageShouldNotBeFetchable(t *testing.T) {
 }
 
 func TestNewSubscriptionShouldNotGetPreviousMessages(t *testing.T) {
-	service = NewModule()
 	msg := createMessage()
 	_, _ = service.Publish(mainCtx, "ali", msg)
 	sub, _ := service.Subscribe(mainCtx, "ali")
@@ -164,7 +173,6 @@ func TestNewSubscriptionShouldNotGetPreviousMessages(t *testing.T) {
 }
 
 func TestConcurrentSubscribesOnOneSubjectShouldNotFail(t *testing.T) {
-	service = NewModule()
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	var wg sync.WaitGroup
@@ -188,7 +196,6 @@ func TestConcurrentSubscribesOnOneSubjectShouldNotFail(t *testing.T) {
 }
 
 func TestConcurrentSubscribesShouldNotFail(t *testing.T) {
-	service = NewModule()
 	ticker := time.NewTicker(2000 * time.Millisecond)
 	defer ticker.Stop()
 	var wg sync.WaitGroup
@@ -212,13 +219,11 @@ func TestConcurrentSubscribesShouldNotFail(t *testing.T) {
 }
 
 func TestConcurrentPublishOnOneSubjectShouldNotFail(t *testing.T) {
-	service = NewModule()
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	var wg sync.WaitGroup
 
-	msg := createMessage()
-
+	i := 1
 	for {
 		select {
 		case <-ticker.C:
@@ -227,24 +232,24 @@ func TestConcurrentPublishOnOneSubjectShouldNotFail(t *testing.T) {
 
 		default:
 			wg.Add(1)
-			go func() {
+			go func(i int) {
 				defer wg.Done()
 
+				msg := createUniqueMessage(i)
 				_, err := service.Publish(mainCtx, "ali", msg)
 				assert.Nil(t, err)
-			}()
+			}(i)
 		}
+		i++
 	}
 }
 
 func TestConcurrentPublishShouldNotFail(t *testing.T) {
-	service = NewModule()
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	var wg sync.WaitGroup
 
-	msg := createMessage()
-
+	i := 1
 	for {
 		select {
 		case <-ticker.C:
@@ -253,21 +258,27 @@ func TestConcurrentPublishShouldNotFail(t *testing.T) {
 
 		default:
 			wg.Add(1)
-			go func() {
+			go func(i int) {
 				defer wg.Done()
-
+				msg := createUniqueMessage(i)
 				_, err := service.Publish(mainCtx, randomString(4), msg)
 				assert.Nil(t, err)
-			}()
+			}(i)
 		}
+		i++
 	}
 }
 
 func TestDataRace(t *testing.T) {
-	service = NewModule()
-	duration := 500 * time.Millisecond
-	ticker := time.NewTicker(duration)
-	defer ticker.Stop()
+	duration := 600 * time.Millisecond
+	ticker1 := time.NewTicker(duration)
+	ticker2 := time.NewTicker(duration)
+	ticker3 := time.NewTicker(duration)
+
+	defer ticker1.Stop()
+	defer ticker2.Stop()
+	defer ticker3.Stop()
+
 	var wg sync.WaitGroup
 
 	ids := make(chan int, 100000)
@@ -275,27 +286,30 @@ func TestDataRace(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-
+		defer log.Println("FUNC1 DONE")
+		i := 0
 		for {
 			select {
-			case <-ticker.C:
+			case <-ticker1.C:
 				return
 
 			default:
-				id, err := service.Publish(mainCtx, "ali", createMessageWithExpire(duration))
+				id, err := service.Publish(mainCtx, "ali", createUniqueMessageWithExpire(duration, i))
 				ids <- id
 				assert.Nil(t, err)
 			}
+			i++
 		}
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer log.Println("FUNC2 DONE")
 
 		for {
 			select {
-			case <-ticker.C:
+			case <-ticker2.C:
 				return
 
 			default:
@@ -308,10 +322,11 @@ func TestDataRace(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer log.Println("FUNC3 DONE")
 
 		for {
 			select {
-			case <-ticker.C:
+			case <-ticker3.C:
 				return
 
 			case id := <-ids:
@@ -320,12 +335,10 @@ func TestDataRace(t *testing.T) {
 			}
 		}
 	}()
-
 	wg.Wait()
 }
 
 func BenchmarkPublish(b *testing.B) {
-	service = NewModule()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -335,7 +348,6 @@ func BenchmarkPublish(b *testing.B) {
 }
 
 func BenchmarkSubscribe(b *testing.B) {
-	service = NewModule()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -352,12 +364,32 @@ func randomString(n int) string {
 	return string(b)
 }
 
+func createUniqueMessage(id int) broker.Message {
+	body := randomString(16)
+
+	return broker.Message{
+		Body:       body,
+		Expiration: 0,
+		Id:         id,
+	}
+}
+
 func createMessage() broker.Message {
 	body := randomString(16)
 
 	return broker.Message{
 		Body:       body,
 		Expiration: 0,
+	}
+}
+
+func createUniqueMessageWithExpire(duration time.Duration, id int) broker.Message {
+	body := randomString(16)
+
+	return broker.Message{
+		Body:       body,
+		Expiration: duration,
+		Id:         id,
 	}
 }
 

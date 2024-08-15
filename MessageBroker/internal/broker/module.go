@@ -3,28 +3,26 @@ package broker
 import (
 	"context"
 	"sync"
+	datacontrol "therealbroker/internal/data_control"
 	"therealbroker/pkg/broker"
-	"time"
 )
 
 type Module struct {
 	// TODO: Add required fields
-	subscriptions  map[string][]chan broker.Message
-	expirationTime map[int]time.Time
-	message        map[int]broker.Message
-	closed         bool
-	bufferSize     int
-	lock           sync.Mutex
+	subscriptions map[string][]chan broker.Message
+	data          datacontrol.DataControl
+	closed        bool
+	bufferSize    int
+	lock          sync.Mutex
 }
 
-func NewModule() broker.Broker {
+func NewModule(data datacontrol.DataControl) broker.Broker {
 	return &Module{
-		subscriptions:  make(map[string][]chan broker.Message),
-		expirationTime: make(map[int]time.Time),
-		message:        make(map[int]broker.Message),
-		closed:         false,
-		bufferSize:     1000,
-		lock:           sync.Mutex{},
+		subscriptions: make(map[string][]chan broker.Message),
+		data:          data,
+		closed:        false,
+		bufferSize:    1000,
+		lock:          sync.Mutex{},
 	}
 }
 
@@ -51,11 +49,10 @@ func (m *Module) Publish(ctx context.Context, subject string, msg broker.Message
 	for _, sub := range m.subscriptions[subject] {
 		sub <- msg
 	}
-
-	m.expirationTime[msg.Id] = time.Now().Add(msg.Expiration)
-	m.message[msg.Id] = msg
 	m.lock.Unlock()
-	return msg.Id, nil
+
+	id, err := m.data.SaveMessage(msg)
+	return id, err
 }
 
 func (m *Module) Subscribe(ctx context.Context, subject string) (<-chan broker.Message, error) {
@@ -78,11 +75,6 @@ func (m *Module) Fetch(ctx context.Context, subject string, id int) (broker.Mess
 	if m.closed {
 		return broker.Message{}, broker.ErrUnavailable
 	}
-	if _, ok := m.message[id]; !ok {
-		return broker.Message{}, broker.ErrInvalidID
-	}
-	if time.Now().After(m.expirationTime[id]) {
-		return broker.Message{}, broker.ErrExpiredID
-	}
-	return m.message[id], nil
+	msg, err := m.data.RetriveMessage(id)
+	return msg, err
 }

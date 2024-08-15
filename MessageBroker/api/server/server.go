@@ -5,6 +5,7 @@ import (
 	"sync"
 	pb "therealbroker/api/proto"
 	bm "therealbroker/internal/broker"
+	datacontrol "therealbroker/internal/data_control"
 	"therealbroker/pkg/broker"
 	"time"
 
@@ -14,24 +15,22 @@ import (
 
 type Server struct {
 	pb.UnimplementedBrokerServer
-	messageId int
-	mu        sync.Mutex
-	broker    broker.Broker
+	mu     sync.Mutex
+	broker broker.Broker
 }
 
-func NewServer() *Server {
-	return &Server{messageId: 0, mu: sync.Mutex{}, broker: bm.NewModule()}
+func NewServer(data datacontrol.DataControl) *Server {
+	return &Server{mu: sync.Mutex{}, broker: bm.NewModule(data)}
 }
 
 func (s *Server) Publish(ctx context.Context, req *pb.PublishRequest) (*pb.PublishResponse, error) {
-	s.mu.Lock()
-	s.messageId++
-	id := s.messageId
-	s.mu.Unlock()
-	msg := broker.Message{Id: id, Body: req.Body, Expiration: time.Duration(time.Duration(req.ExpirationSeconds) * time.Second)}
+	msg := broker.Message{Body: req.Body, Expiration: time.Duration(time.Duration(req.ExpirationSeconds) * time.Second)}
 	id, err := s.broker.Publish(ctx, req.Subject, msg)
+	if err == broker.ErrAlreadyExistID {
+		return nil, status.Errorf(codes.InvalidArgument, "message id already exists")
+	}
 	if err != nil {
-		return nil, status.Errorf(codes.Unavailable, "broker is closed")
+		return nil, status.Errorf(codes.Internal, "internal error")
 	}
 	return &pb.PublishResponse{Id: int32(id)}, nil
 }
@@ -65,6 +64,9 @@ func (s *Server) Fetch(ctx context.Context, req *pb.FetchRequest) (*pb.MessageRe
 	}
 	if err == broker.ErrInvalidID {
 		return nil, status.Errorf(codes.InvalidArgument, "message id does not exits")
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "internal error")
 	}
 	return &pb.MessageResponse{Body: msg.Body}, nil
 }

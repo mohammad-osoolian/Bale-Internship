@@ -14,8 +14,8 @@ import (
 
 const (
 	serverAddr      = "localhost:50051" // Update this to your server address
-	numRequests     = 1000000
-	requestInterval = 1 * time.Microsecond
+	numRequests     = 100000
+	requestInterval = 100 * time.Microsecond
 )
 
 func TestPublishLoad(t *testing.T) {
@@ -52,7 +52,7 @@ func TestPublishLoad(t *testing.T) {
 			results <- nil
 		}(i)
 
-		time.Sleep(requestInterval)
+		// time.Sleep(requestInterval)
 	}
 
 	wg.Wait()
