@@ -5,8 +5,7 @@ import (
 )
 
 type DataControl interface {
-	SaveMessage(msg broker.Message) (int, error)
-	RetriveMessage(id int) (broker.Message, error)
-	IdExists(id int) bool
+	SaveMessage(msg broker.Message) (string, error)
+	RetriveMessage(id string) (broker.Message, error)
 	ClearData() error
 }

@@ -1,6 +1,7 @@
 package datacontrol
 
 import (
+	"fmt"
 	"sync"
 	"therealbroker/pkg/broker"
 	"time"
@@ -8,16 +9,16 @@ import (
 
 type DataMemory struct {
 	DataControl
-	expirationTime map[int]time.Time
-	message        map[int]broker.Message
+	expirationTime map[string]time.Time
+	message        map[string]broker.Message
 	messageId      int
 	lock           sync.Mutex
 }
 
 func NewDataMemory() *DataMemory {
 	return &DataMemory{
-		expirationTime: make(map[int]time.Time),
-		message:        make(map[int]broker.Message),
+		expirationTime: make(map[string]time.Time),
+		message:        make(map[string]broker.Message),
 		messageId:      0,
 	}
 }
@@ -37,9 +38,9 @@ func (dm *DataMemory) ClearData() error {
 	return nil
 }
 
-func (dm *DataMemory) SaveMessage(msg broker.Message) (int, error) {
+func (dm *DataMemory) SaveMessage(msg broker.Message) (string, error) {
 	dm.lock.Lock()
-	msg.Id = dm.messageId
+	msg.Id = fmt.Sprintf("%v", dm.messageId)
 	dm.messageId++
 
 	// if dm.IdExists(msg.Id) {
@@ -52,7 +53,7 @@ func (dm *DataMemory) SaveMessage(msg broker.Message) (int, error) {
 	return msg.Id, nil
 }
 
-func (dm *DataMemory) RetriveMessage(id int) (broker.Message, error) {
+func (dm *DataMemory) RetriveMessage(id string) (broker.Message, error) {
 	dm.lock.Lock()
 	if _, ok := dm.message[id]; !ok {
 		return broker.Message{}, broker.ErrInvalidID
@@ -65,7 +66,7 @@ func (dm *DataMemory) RetriveMessage(id int) (broker.Message, error) {
 	return msg, nil
 }
 
-func (dm *DataMemory) IdExists(id int) bool {
+func (dm *DataMemory) IdExists(id string) bool {
 	dm.lock.Lock()
 	_, ok := dm.message[id]
 	dm.lock.Unlock()

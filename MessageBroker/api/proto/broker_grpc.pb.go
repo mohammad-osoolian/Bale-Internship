@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v3.21.12
-// source: api/proto/broker.proto
+// source: broker.proto
 
 package proto
 
@@ -213,5 +213,5 @@ var Broker_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "api/proto/broker.proto",
+	Metadata: "broker.proto",
 }

@@ -2,6 +2,7 @@ package broker
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"math/rand"
 	"sync"
@@ -22,19 +23,32 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	postgres := datacontrol.NewDataPostgres("localhost", "5432", "postgres", "8764", "TestDB", context.Background())
-	err := postgres.Connect()
+	// postgres := datacontrol.NewDataPostgres("localhost", "5432", "postgres", "8764", "TestDB", context.Background())
+	// err := postgres.Connect()
+	// if err != nil {
+	// 	log.Println(err)
+	// 	return
+	// }
+	// defer postgres.Close()
+	// err = postgres.ClearData()
+	// if err != nil {
+	// 	log.Println(err)
+	// 	return
+	// }
+	// data = postgres
+
+	scylla := datacontrol.NewDataScylla("127.0.0.1", "9042", "test_db", time.Duration(10*time.Second))
+	err := scylla.Connect()
+	if err != nil {
+		log.Println(err)
+	}
+	defer scylla.Close()
+	err = scylla.ClearData()
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	err = postgres.ClearData()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer postgres.Close()
-	data = postgres
+	data = scylla
 
 	// data = NewDataMemory()
 
@@ -65,7 +79,7 @@ func TestFetchShouldFailOnClosed(t *testing.T) {
 	err := service.Close()
 	assert.Nil(t, err)
 
-	_, err = service.Fetch(mainCtx, "ali", rand.Intn(100))
+	_, err = service.Fetch(mainCtx, "ali", fmt.Sprintf("%v", rand.Intn(100)))
 	assert.Equal(t, broker.ErrUnavailable, err)
 }
 
@@ -235,7 +249,7 @@ func TestConcurrentPublishOnOneSubjectShouldNotFail(t *testing.T) {
 			go func(i int) {
 				defer wg.Done()
 
-				msg := createUniqueMessage(i)
+				msg := createUniqueMessage(fmt.Sprintf("%v", i))
 				_, err := service.Publish(mainCtx, "ali", msg)
 				assert.Nil(t, err)
 			}(i)
@@ -260,7 +274,7 @@ func TestConcurrentPublishShouldNotFail(t *testing.T) {
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
-				msg := createUniqueMessage(i)
+				msg := createUniqueMessage(fmt.Sprintf("%v", i))
 				_, err := service.Publish(mainCtx, randomString(4), msg)
 				assert.Nil(t, err)
 			}(i)
@@ -281,7 +295,7 @@ func TestDataRace(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	ids := make(chan int, 100000)
+	ids := make(chan string, 100000)
 
 	wg.Add(1)
 	go func() {
@@ -294,7 +308,7 @@ func TestDataRace(t *testing.T) {
 				return
 
 			default:
-				id, err := service.Publish(mainCtx, "ali", createUniqueMessageWithExpire(duration, i))
+				id, err := service.Publish(mainCtx, "ali", createUniqueMessageWithExpire(duration, fmt.Sprintf("%v", i)))
 				ids <- id
 				assert.Nil(t, err)
 			}
@@ -364,7 +378,7 @@ func randomString(n int) string {
 	return string(b)
 }
 
-func createUniqueMessage(id int) broker.Message {
+func createUniqueMessage(id string) broker.Message {
 	body := randomString(16)
 
 	return broker.Message{
@@ -383,7 +397,7 @@ func createMessage() broker.Message {
 	}
 }
 
-func createUniqueMessageWithExpire(duration time.Duration, id int) broker.Message {
+func createUniqueMessageWithExpire(duration time.Duration, id string) broker.Message {
 	body := randomString(16)
 
 	return broker.Message{
