@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
 	"therealbroker/api/metrics"
-	pb "therealbroker/api/proto"
 	"therealbroker/api/server"
+	datacontrol "therealbroker/internal/data_control"
 
+	pb "therealbroker/api/proto"
+
+	_ "github.com/lib/pq"
 	"google.golang.org/grpc"
 )
 
@@ -16,7 +20,11 @@ import (
 //  3. Basic prometheus metrics ( latency, throughput, etc. ) should be implemented
 //     for every base functionality ( publish, subscribe etc. )
 func main() {
-	brokerServer := server.NewServer()
+	postgres := datacontrol.NewDataPostgres("localhost", "5432", "postgres", "8764", "TestDB", context.Background())
+	postgres.Connect()
+	defer postgres.Close()
+
+	brokerServer := server.NewServer(postgres)
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(server.UnaryMetricsInterceptor()),
 		grpc.StreamInterceptor(server.StreamMetricsInterceptor()),
@@ -34,4 +42,5 @@ func main() {
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
+
 }
