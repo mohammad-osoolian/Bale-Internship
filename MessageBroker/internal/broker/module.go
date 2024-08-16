@@ -36,9 +36,9 @@ func (m *Module) Close() error {
 	return nil
 }
 
-func (m *Module) Publish(ctx context.Context, subject string, msg broker.Message) (int, error) {
+func (m *Module) Publish(ctx context.Context, subject string, msg broker.Message) (string, error) {
 	if m.closed {
-		return 0, broker.ErrUnavailable
+		return "", broker.ErrUnavailable
 	}
 
 	m.lock.Lock()
@@ -71,7 +71,7 @@ func (m *Module) Subscribe(ctx context.Context, subject string) (<-chan broker.M
 	return newsub, nil
 }
 
-func (m *Module) Fetch(ctx context.Context, subject string, id int) (broker.Message, error) {
+func (m *Module) Fetch(ctx context.Context, subject string, id string) (broker.Message, error) {
 	if m.closed {
 		return broker.Message{}, broker.ErrUnavailable
 	}

@@ -17,6 +17,7 @@ import (
 )
 
 type DataPostgres struct {
+	DataControl
 	host     string
 	port     string
 	username string
@@ -43,7 +44,7 @@ func NewDataPostgres(host, port, username, password, dbName string, ctx context.
 type PublishBatch struct {
 	lock          sync.Mutex
 	msgs          []broker.Message
-	responses     []chan int
+	responses     []chan string
 	db            *pgxpool.Pool
 	ctx           context.Context
 	flushInterval time.Duration
@@ -54,7 +55,7 @@ func NewPublishBatch(db *pgxpool.Pool, ctx context.Context) *PublishBatch {
 	batch := PublishBatch{
 		lock:          sync.Mutex{},
 		msgs:          make([]broker.Message, 0),
-		responses:     make([]chan int, 0),
+		responses:     make([]chan string, 0),
 		db:            db,
 		ctx:           ctx,
 		flushInterval: 500 * time.Millisecond,
@@ -77,10 +78,10 @@ func (b *PublishBatch) Query() string {
 	return builder.String()
 }
 
-func (b *PublishBatch) AddtoQueue(msg broker.Message) chan int {
+func (b *PublishBatch) AddtoQueue(msg broker.Message) chan string {
 	b.lock.Lock()
 	b.msgs = append(b.msgs, msg)
-	newresp := make(chan int, 1)
+	newresp := make(chan string, 1)
 	b.responses = append(b.responses, newresp)
 	b.lock.Unlock()
 	return newresp
@@ -100,7 +101,7 @@ func (b *PublishBatch) Execute() {
 	defer rows.Close()
 	i := 0
 	for rows.Next() {
-		var id int
+		var id string
 		err := rows.Scan(&id)
 		if err != nil {
 			log.Println(err)
@@ -109,7 +110,7 @@ func (b *PublishBatch) Execute() {
 		b.responses[i] <- id
 		i++
 	}
-	b.responses = make([]chan int, 0)
+	b.responses = make([]chan string, 0)
 	b.msgs = make([]broker.Message, 0)
 }
 
@@ -177,7 +178,7 @@ func (dp *DataPostgres) TestConnection() bool {
 	return dp.db.Ping(dp.ctx) == nil
 }
 
-func (dp *DataPostgres) SaveMessage(msg broker.Message) (int, error) {
+func (dp *DataPostgres) SaveMessage(msg broker.Message) (string, error) {
 	resp := dp.batch.AddtoQueue(msg)
 	id := <-resp
 	return id, nil
@@ -200,19 +201,23 @@ func (dp *DataPostgres) SaveMessage(msg broker.Message) (int, error) {
 // 	return id, nil
 // }
 
-func (dp *DataPostgres) RetriveMessage(id int) (broker.Message, error) {
+func (dp *DataPostgres) RetriveMessage(id string) (broker.Message, error) {
 	query := `
         SELECT id, body, expiration_duration, expires_at
         FROM messages 
         WHERE id=$1
     `
-	row := dp.db.QueryRow(dp.ctx, query, id)
+	intid, err := strconv.Atoi(id)
+	if err != nil {
+		return broker.Message{}, broker.ErrInvalidID
+	}
+
+	row := dp.db.QueryRow(dp.ctx, query, intid)
 
 	msg := broker.Message{}
 	var expiration pgtype.Text
 	var expiresAt pgtype.Timestamptz
-	err := row.Scan(&msg.Id, &msg.Body, &expiration, &expiresAt)
-
+	err = row.Scan(&msg.Id, &msg.Body, &expiration, &expiresAt)
 	if err == pgx.ErrNoRows {
 		return broker.Message{}, broker.ErrInvalidID
 	} else if err != nil {
@@ -228,7 +233,7 @@ func (dp *DataPostgres) RetriveMessage(id int) (broker.Message, error) {
 	return msg, nil
 }
 
-func (dp *DataPostgres) IdExists(id int) bool {
+func (dp *DataPostgres) IdExists(id string) bool {
 	query := `
         SELECT id
         FROM messages 

@@ -32,7 +32,7 @@ func (s *Server) Publish(ctx context.Context, req *pb.PublishRequest) (*pb.Publi
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "internal error")
 	}
-	return &pb.PublishResponse{Id: int32(id)}, nil
+	return &pb.PublishResponse{Id: id}, nil
 }
 
 func (s *Server) Subscribe(req *pb.SubscribeRequest, stream pb.Broker_SubscribeServer) error {
@@ -55,7 +55,7 @@ func (s *Server) Subscribe(req *pb.SubscribeRequest, stream pb.Broker_SubscribeS
 }
 
 func (s *Server) Fetch(ctx context.Context, req *pb.FetchRequest) (*pb.MessageResponse, error) {
-	msg, err := s.broker.Fetch(ctx, req.Subject, int(req.Id))
+	msg, err := s.broker.Fetch(ctx, req.Subject, req.Id)
 	if err == broker.ErrUnavailable {
 		return nil, status.Errorf(codes.Unavailable, "broker is closed")
 	}
