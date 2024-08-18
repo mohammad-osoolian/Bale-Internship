@@ -25,6 +25,7 @@ func NewDataMemory() *DataMemory {
 
 func (dm *DataMemory) ClearData() error {
 	dm.lock.Lock()
+	defer dm.lock.Unlock()
 	for k := range dm.expirationTime {
 		delete(dm.expirationTime, k)
 	}
@@ -34,7 +35,6 @@ func (dm *DataMemory) ClearData() error {
 	}
 
 	dm.messageId = 0
-	dm.lock.Unlock()
 	return nil
 }
 
@@ -42,10 +42,6 @@ func (dm *DataMemory) SaveMessage(msg broker.Message) (string, error) {
 	dm.lock.Lock()
 	msg.Id = fmt.Sprintf("%v", dm.messageId)
 	dm.messageId++
-
-	// if dm.IdExists(msg.Id) {
-	// 	return msg.Id, broker.ErrAlreadyExistID
-	// }
 
 	dm.expirationTime[msg.Id] = time.Now().Add(msg.Expiration)
 	dm.message[msg.Id] = msg
@@ -55,6 +51,7 @@ func (dm *DataMemory) SaveMessage(msg broker.Message) (string, error) {
 
 func (dm *DataMemory) RetriveMessage(id string) (broker.Message, error) {
 	dm.lock.Lock()
+	defer dm.lock.Unlock()
 	if _, ok := dm.message[id]; !ok {
 		return broker.Message{}, broker.ErrInvalidID
 	}
@@ -62,7 +59,6 @@ func (dm *DataMemory) RetriveMessage(id string) (broker.Message, error) {
 		return broker.Message{}, broker.ErrExpiredID
 	}
 	msg := dm.message[id]
-	dm.lock.Unlock()
 	return msg, nil
 }
 

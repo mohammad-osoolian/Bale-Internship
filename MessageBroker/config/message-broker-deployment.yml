@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: message-broker-deployment
+  labels:
+    name: message-broker-deployment
+    app: bale-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: message-broker-pod
+      app: bale-app
+  template:
+    metadata:
+      name: message-broker-pod
+      labels:
+        name: message-broker-pod
+        app: bale-app
+    spec:
+      containers:
+      - name: message-broker
+        image: mohammad2782/message-broker:1
+        ports:
+          - containerPort: 50051
+        env:
+        - name: GRPC_PORT
+          value: "50051"
+        - name: DATA_CONTROL
+          value: "scylla"
+        - name: SCYLLA_HOST
+          value: "simple-cluster-client.scylla.svc"
+        - name: SCYLLA_PORT
+          value: "9042"
+        - name: SCYLLA_KEYSPACE
+          value: test_db
+        - name: SCYLLA_FORGET
+          value: "10"
+

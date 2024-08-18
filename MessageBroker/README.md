@@ -18,3 +18,5 @@ interface. There are unit tests to specify requirements and also validate your i
 - [ ] Persist messages in postgres
 - [ ] Persist messages in cassandra
 - [ ] Deploy your app on k8s
+
+https://operator.docs.scylladb.com/stable/generic.html

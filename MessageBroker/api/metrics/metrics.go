@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"log"
 	"net/http"
 	"runtime"
 
@@ -96,7 +97,8 @@ func StartMetricsServer() {
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
 		if err := http.ListenAndServe(":2112", nil); err != nil {
-			panic(err)
+			log.Println("failed to start metrics server")
 		}
 	}()
+	log.Println("*** metric server started ***")
 }

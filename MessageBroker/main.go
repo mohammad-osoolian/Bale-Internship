@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net"
 	"therealbroker/api/metrics"
 	"therealbroker/api/server"
+	"therealbroker/config"
 	datacontrol "therealbroker/internal/data_control"
-	"time"
 
 	pb "therealbroker/api/proto"
 
@@ -20,24 +22,54 @@ import (
 //  3. Basic prometheus metrics ( latency, throughput, etc. ) should be implemented
 //     for every base functionality ( publish, subscribe etc. )
 func main() {
-	var DB datacontrol.DataControl
-	scylla := datacontrol.NewDataScylla("127.0.0.1", "9042", "test_db", time.Duration(10*time.Second))
-	err := scylla.Connect()
-	if err != nil {
-		log.Println(err)
+	if err := config.LoadConfig(); err != nil {
+		log.Println("failed to load configs")
 		return
 	}
-	defer scylla.Close()
-	DB = scylla
+	log.Println("*** config loaded ***")
 
-	// postgres := datacontrol.NewDataPostgres("localhost", "5432", "postgres", "8764", "TestDB", context.Background())
-	// err := postgres.Connect()
-	// if err != nil {
-	// 	log.Println(err)
-	// 	return
-	// }
-	// defer postgres.Close()
-	// DB = postgres
+	var DB datacontrol.DataControl
+	if config.DATA_CONTROL == "memory" {
+		memory := datacontrol.NewDataMemory()
+		DB = memory
+	}
+
+	if config.DATA_CONTROL == "postgres" {
+		postgres := datacontrol.NewDataPostgres(
+			config.POSTGRES_HOST,
+			config.POSTGRES_PORT,
+			config.POSTGRES_USER,
+			config.POSTGRES_PASS,
+			config.POSTGRES_DBNAME,
+			context.Background())
+
+		err := postgres.Connect()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		defer postgres.Close()
+		DB = postgres
+
+	}
+
+	if config.DATA_CONTROL == "scylla" {
+		scylla := datacontrol.NewDataScylla(
+			config.SCYLLA_HOST,
+			config.SCYLLA_PORT,
+			config.SCYLLA_KEYSPACE,
+			config.SCYLLA_FORGET)
+
+		err := scylla.Connect()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		defer scylla.Close()
+		DB = scylla
+	}
+
+	log.Println("*** data control started on", config.DATA_CONTROL, "***")
 
 	brokerServer := server.NewServer(DB)
 	grpcServer := grpc.NewServer(
@@ -48,7 +80,7 @@ func main() {
 
 	metrics.StartMetricsServer()
 
-	lis, err := net.Listen("tcp", ":50051")
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", config.GRPC_PORT))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}

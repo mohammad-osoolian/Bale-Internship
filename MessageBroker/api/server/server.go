@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"log"
 	"sync"
 	pb "therealbroker/api/proto"
 	bm "therealbroker/internal/broker"
@@ -66,6 +67,7 @@ func (s *Server) Fetch(ctx context.Context, req *pb.FetchRequest) (*pb.MessageRe
 		return nil, status.Errorf(codes.InvalidArgument, "message id does not exits")
 	}
 	if err != nil {
+		log.Println(err)
 		return nil, status.Errorf(codes.Internal, "internal error")
 	}
 	return &pb.MessageResponse{Body: msg.Body}, nil
