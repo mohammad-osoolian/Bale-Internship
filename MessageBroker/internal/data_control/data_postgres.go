@@ -58,11 +58,43 @@ func NewPublishBatch(db *pgxpool.Pool, ctx context.Context) *PublishBatch {
 		responses:     make([]chan string, 0),
 		db:            db,
 		ctx:           ctx,
-		flushInterval: 500 * time.Millisecond,
+		flushInterval: 100 * time.Millisecond,
 		stopChan:      make(chan bool),
 	}
 	batch.StartExecuter()
 	return &batch
+}
+
+func (dp *DataPostgres) Connect() error {
+	connString := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		dp.host, dp.port, dp.username, dp.password, dp.dbName)
+
+	config, err := pgxpool.ParseConfig(connString)
+	if err != nil {
+		return errors.New("unable to parse database configuration")
+	}
+
+	config.MaxConns = 5
+	config.MinConns = 2
+
+	dp.db, err = pgxpool.NewWithConfig(dp.ctx, config)
+	if err != nil {
+		return errors.New("unable to create connection pool")
+	}
+
+	if !dp.TestConnection() {
+		return errors.New("failed to ping the database")
+	}
+
+	dp.batch = NewPublishBatch(dp.db, dp.ctx)
+
+	return nil
+}
+
+func (dp *DataPostgres) Close() error {
+	dp.db.Close()
+	dp.batch.StopExecuter()
+	return nil
 }
 
 func (b *PublishBatch) Query() string {
@@ -139,38 +171,6 @@ func (dp *DataPostgres) ClearData() error {
 	if err != nil {
 		return broker.ErrClearData
 	}
-	return nil
-}
-
-func (dp *DataPostgres) Connect() error {
-	connString := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		dp.host, dp.port, dp.username, dp.password, dp.dbName)
-
-	config, err := pgxpool.ParseConfig(connString)
-	if err != nil {
-		return errors.New("unable to parse database configuration")
-	}
-
-	config.MaxConns = 50
-	config.MinConns = 30
-
-	dp.db, err = pgxpool.NewWithConfig(dp.ctx, config)
-	if err != nil {
-		return errors.New("unable to create connection pool")
-	}
-
-	if !dp.TestConnection() {
-		return errors.New("failed to ping the database")
-	}
-
-	dp.batch = NewPublishBatch(dp.db, dp.ctx)
-
-	return nil
-}
-
-func (dp *DataPostgres) Close() error {
-	dp.db.Close()
-	dp.batch.StopExecuter()
 	return nil
 }
 

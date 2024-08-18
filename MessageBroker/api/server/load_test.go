@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"log"
 	"sync"
 	"testing"
 	"time"
@@ -13,9 +14,9 @@ import (
 )
 
 const (
-	serverAddr      = "localhost:50051" // Update this to your server address
-	numRequests     = 100000
-	requestInterval = 100 * time.Microsecond
+	serverAddr = "127.0.0.1:50051" // Update this to your server address
+	reqPerSec  = 100000
+	duration   = 30 * time.Second
 )
 
 func TestPublishLoad(t *testing.T) {
@@ -26,47 +27,56 @@ func TestPublishLoad(t *testing.T) {
 	defer conn.Close()
 
 	client := proto.NewBrokerClient(conn)
-
+	numRequests := reqPerSec * int(duration.Seconds()) * 2
+	delay := time.Duration(time.Second.Nanoseconds() / reqPerSec)
+	log.Println(delay)
+	ticker := time.NewTicker(delay)
+	defer ticker.Stop()
+	timeout := time.NewTicker(duration)
+	defer timeout.Stop()
 	results := make(chan error, numRequests)
 	var wg sync.WaitGroup
 
-	for i := 0; i < numRequests; i++ {
-		wg.Add(1)
-		go func(reqID int) {
-			defer wg.Done()
-			req := &proto.PublishRequest{
-				Subject:           "Test Subject",
-				Body:              "Test Body",
-				ExpirationSeconds: 3600,
-			}
-
-			ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
-			defer cancel()
-
-			_, err := client.Publish(ctx, req)
-			if err != nil {
-				results <- err
-				return
-			}
-
-			results <- nil
-		}(i)
-
-		// time.Sleep(requestInterval)
-	}
+	StartTest(ticker, timeout, &wg, results, client)
 
 	wg.Wait()
 	close(results)
 
-	var numErrors int
 	for err := range results {
 		if err != nil {
 			t.Errorf("Request failed: %v", err)
-			numErrors++
+			return
 		}
 	}
+}
 
-	if numErrors > 0 {
-		t.Fatalf("%d requests failed", numErrors)
+func StartTest(ticker, timeout *time.Ticker, wg *sync.WaitGroup, results chan error, client proto.BrokerClient) {
+	for {
+		select {
+		case <-ticker.C:
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				req := &proto.PublishRequest{
+					Subject:           "Test Subject",
+					Body:              "Test Body",
+					ExpirationSeconds: 3600,
+				}
+
+				ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+				defer cancel()
+
+				_, err := client.Publish(ctx, req)
+				if err != nil {
+					results <- err
+					return
+				}
+
+				results <- nil
+			}()
+		case <-timeout.C:
+			log.Println("test finished")
+			return
+		}
 	}
 }

@@ -37,20 +37,20 @@ func TestMain(m *testing.M) {
 	// }
 	// data = postgres
 
-	scylla := datacontrol.NewDataScylla("127.0.0.1", "9042", "test_db", time.Duration(10*time.Second))
-	err := scylla.Connect()
-	if err != nil {
-		log.Println(err)
-	}
-	defer scylla.Close()
-	err = scylla.ClearData()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	data = scylla
+	// scylla := datacontrol.NewDataScylla("127.0.0.1", "9042", "test_db", time.Duration(10*time.Second))
+	// err := scylla.Connect()
+	// if err != nil {
+	// 	log.Println(err)
+	// }
+	// defer scylla.Close()
+	// err = scylla.ClearData()
+	// if err != nil {
+	// 	log.Println(err)
+	// 	return
+	// }
+	// data = scylla
 
-	// data = NewDataMemory()
+	data = datacontrol.NewDataMemory()
 
 	service = NewModule(data)
 	rand.Seed(time.Now().Unix())
