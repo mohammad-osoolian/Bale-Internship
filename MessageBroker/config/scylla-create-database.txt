@@ -1,0 +1,14 @@
+DESC KEYSPACES
+
+CREATE KEYSPACE Pets_Clinic WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 1};
+
+CREATE TABLE messages (
+    id UUID PRIMARY KEY,
+    body TEXT,
+    expiration_duration INT,
+    expires_at TIMESTAMP
+);
+
+
+INSERT INTO messages (id, body, expiration_duration, expires_at) VALUES (uuid(), 'This is a sample message', 3600, toTimestamp(now() + 3600);
+
