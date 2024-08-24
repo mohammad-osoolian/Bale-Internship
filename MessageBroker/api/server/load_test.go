@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	serverAddr = "127.0.0.1:50051" // Update this to your server address
-	reqPerSec  = 100000
+	serverAddr = "192.168.49.2:30000" // Update this to your server address
+	reqPerSec  = 30000
 	duration   = 30 * time.Second
 )
 
