@@ -1,22 +1,23 @@
-# Welcome project for newcomers!
+# Message Broker
 
-# Introduction
-In this project you have to implement a message broker, based on `broker.Broker`
-interface. There are unit tests to specify requirements and also validate your implementation.
+A high-performance, gRPC-based message broker written in Go, designed for efficient publish-subscribe communication.  
+The service is containerized with Docker, deployed on a **custom Kubernetes cluster** (1 master, 2 workers) built from scratch using `kubeadm`, and fully integrated with **Prometheus** and **Grafana** for observability.  
+Extensive **load testing** was performed to validate scalability and performance under heavy traffic.
 
-# Roadmap
-- [ ] Implement `broker.Broker` interface and pass all tests (Use memory for database)
-- [ ] Create *dockerfile* and *docker-compose* files for your deployment
-- [ ] Add basic logs and prometheus metrics
-    - Metrics for each RPCs:
-      - `method_count` to show count of failed/successful RPC calls
-      - `method_duration` for latency of each call, in 99, 95, 50 quantiles
-      - `active_subscribers` to display total active subscriptions
-    - Env metrics:
-      - Metrics for your application memory, cpu load, cpu utilization, GCs
-- [ ] Implement gRPC API for the broker and main functionalities
-- [ ] Persist messages in postgres
-- [ ] Persist messages in cassandra
-- [ ] Deploy your app on k8s
+---
 
-https://operator.docs.scylladb.com/stable/generic.html
+## 🚀 Features
+
+- **gRPC API** for low-latency communication
+- **Publish/Subscribe** messaging model
+- **Multiple storage backends**:  
+  - In-memory  
+  - PostgreSQL  
+  - ScyllaDB
+- **Full observability stack**:  
+  - **Prometheus** for metrics (latency, throughput, error rates)  
+  - **Grafana** dashboards for real-time monitoring  
+- **Load testing framework** to simulate high-concurrency clients and measure broker performance
+- **Graceful shutdown** with context management
+- **Kubernetes-ready** with deployment and service manifests
+- **Dockerized** for portability and CI/CD pipelines
